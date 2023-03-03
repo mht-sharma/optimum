@@ -3334,12 +3334,12 @@ class ORTModelForSeq2SeqLMIntegrationTest(ORTModelTestMixin):
         self._setup(model_args)
 
         model_id = MODEL_NAMES[model_arch]
-        onnx_model = ORTModelForSeq2SeqLM.from_pretrained(self.onnx_model_dirs[test_name], use_io_binding=False).to(
-            "cuda"
-        )
-        io_model = ORTModelForSeq2SeqLM.from_pretrained(self.onnx_model_dirs[test_name], use_io_binding=True).to(
-            "cuda"
-        )
+        onnx_model = ORTModelForSeq2SeqLM.from_pretrained(
+            self.onnx_model_dirs[test_name], use_io_binding=False, use_cache=use_cache
+        ).to("cuda")
+        io_model = ORTModelForSeq2SeqLM.from_pretrained(
+            self.onnx_model_dirs[test_name], use_io_binding=True, use_cache=use_cache
+        ).to("cuda")
 
         tokenizer = get_preprocessor(model_id)
         tokens = tokenizer(["This is a sample output"] * 2, return_tensors="pt").to("cuda")
@@ -3366,12 +3366,12 @@ class ORTModelForSeq2SeqLMIntegrationTest(ORTModelTestMixin):
         self._setup(model_args)
 
         model_id = MODEL_NAMES[model_arch]
-        onnx_model = ORTModelForSeq2SeqLM.from_pretrained(self.onnx_model_dirs[test_name], use_io_binding=False).to(
-            "cuda"
-        )
-        io_model = ORTModelForSeq2SeqLM.from_pretrained(self.onnx_model_dirs[test_name], use_io_binding=True).to(
-            "cuda"
-        )
+        onnx_model = ORTModelForSeq2SeqLM.from_pretrained(
+            self.onnx_model_dirs[test_name], use_io_binding=False, use_cache=use_cache
+        ).to("cuda")
+        io_model = ORTModelForSeq2SeqLM.from_pretrained(
+            self.onnx_model_dirs[test_name], use_io_binding=True, use_cache=use_cache
+        ).to("cuda")
 
         tokenizer = get_preprocessor(model_id)
         tokens = tokenizer("This is a sample output", return_tensors="pt").to("cuda")
