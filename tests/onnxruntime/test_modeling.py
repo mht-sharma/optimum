@@ -3057,6 +3057,7 @@ class ORTModelForSeq2SeqLMIntegrationTest(ORTModelTestMixin):
         # "bigbird_pegasus",
         "blenderbot",
         "blenderbot_small",
+        "encoder-decoder",
         "longt5",
         "m2m_100",
         "marian",
@@ -3085,11 +3086,13 @@ class ORTModelForSeq2SeqLMIntegrationTest(ORTModelTestMixin):
 
     @parameterized.expand(grid_parameters({"model_arch": SUPPORTED_ARCHITECTURES, "use_cache": [True]}))
     def test_generate_utils(self, test_name: str, model_arch: str, use_cache: str):
+        if model_arch == "encoder-decoder":
+            use_cache = False
         model_args = {"test_name": test_name, "model_arch": model_arch, "use_cache": use_cache}
         self._setup(model_args)
 
         model_id = MODEL_NAMES[model_arch]
-        model = ORTModelForSeq2SeqLM.from_pretrained(self.onnx_model_dirs[test_name])
+        model = ORTModelForSeq2SeqLM.from_pretrained(self.onnx_model_dirs[test_name], use_cache=use_cache)
         tokenizer = get_preprocessor(model_id)
         text = "This is a sample output"
         tokens = tokenizer(text, return_tensors="pt")
@@ -3108,6 +3111,8 @@ class ORTModelForSeq2SeqLMIntegrationTest(ORTModelTestMixin):
 
     @parameterized.expand(grid_parameters(FULL_GRID))
     def test_compare_to_transformers(self, test_name: str, model_arch: str, use_cache: bool):
+        if model_arch == "encoder-decoder" and use_cache is True:
+            return
         model_args = {"test_name": test_name, "model_arch": model_arch, "use_cache": use_cache}
         self._setup(model_args)
 
@@ -3148,6 +3153,8 @@ class ORTModelForSeq2SeqLMIntegrationTest(ORTModelTestMixin):
 
     @parameterized.expand(grid_parameters(FULL_GRID))
     def test_pipeline_text_generation(self, test_name: str, model_arch: str, use_cache: bool):
+        if model_arch == "encoder-decoder" and use_cache is True:
+            return
         model_args = {"test_name": test_name, "model_arch": model_arch, "use_cache": use_cache}
         self._setup(model_args)
 
@@ -3203,6 +3210,8 @@ class ORTModelForSeq2SeqLMIntegrationTest(ORTModelTestMixin):
     @require_torch_gpu
     @pytest.mark.gpu_test
     def test_pipeline_on_gpu(self, test_name: str, model_arch: str, use_cache: bool):
+        if model_arch == "encoder-decoder":
+            use_cache = False
         model_args = {"test_name": test_name, "model_arch": model_arch, "use_cache": use_cache}
         self._setup(model_args)
 
@@ -3274,7 +3283,7 @@ class ORTModelForSeq2SeqLMIntegrationTest(ORTModelTestMixin):
     @parameterized.expand(SUPPORTED_ARCHITECTURES)
     @pytest.mark.gpu_test  # mark as GPU test as well to run the without/with cache timing test on the slow tests
     def test_compare_with_and_without_past_key_values(self, model_arch: str):
-        if model_arch == "m2m_100":
+        if model_arch == "m2m_100" and model_arch == "encoder-decoder":
             return  # TODO: this test is failing for m2m_100
         model_args = {"test_name": model_arch + "_False", "model_arch": model_arch, "use_cache": False}
         self._setup(model_args)
@@ -3319,6 +3328,8 @@ class ORTModelForSeq2SeqLMIntegrationTest(ORTModelTestMixin):
     @require_torch_gpu
     @pytest.mark.gpu_test
     def test_compare_to_io_binding(self, test_name: str, model_arch: str, use_cache: bool):
+        if model_arch == "encoder-decoder":
+            use_cache = False
         model_args = {"test_name": test_name, "model_arch": model_arch, "use_cache": use_cache}
         self._setup(model_args)
 
@@ -3349,6 +3360,8 @@ class ORTModelForSeq2SeqLMIntegrationTest(ORTModelTestMixin):
     @parameterized.expand(grid_parameters({"model_arch": SUPPORTED_ARCHITECTURES, "use_cache": [True]}))
     @require_torch_gpu
     def test_compare_generation_to_io_binding(self, test_name: str, model_arch: str, use_cache: bool):
+        if model_arch == "encoder-decoder":
+            use_cache = False
         model_args = {"test_name": test_name, "model_arch": model_arch, "use_cache": use_cache}
         self._setup(model_args)
 

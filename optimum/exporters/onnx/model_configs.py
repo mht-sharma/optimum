@@ -40,7 +40,7 @@ from .base import ConfigBehavior, OnnxConfig, OnnxConfigWithPast, OnnxSeq2SeqCon
 from .config import (
     AudioOnnxConfig,
     AudioToTextOnnxConfig,
-    EncoderDecoderOnnxConfig,
+    DummyEncoderDecoderOnnxConfig,
     TextAndVisionOnnxConfig,
     TextDecoderOnnxConfig,
     TextEncoderOnnxConfig,
@@ -996,7 +996,7 @@ class TrOCROnnxConfig(TextSeq2SeqOnnxConfig):
     )
 
 
-class VisionEncoderDecoderOnnxConfig(EncoderDecoderOnnxConfig):
+class VisionEncoderDecoderOnnxConfig(DummyEncoderDecoderOnnxConfig):
     NORMALIZED_CONFIG_CLASS = NormalizedEncoderDecoderConfig
     ATOL_FOR_VALIDATION = 1e-3
 
@@ -1040,3 +1040,7 @@ class VisionEncoderDecoderOnnxConfig(EncoderDecoderOnnxConfig):
             common_inputs["encoder_outputs"] = {0: "batch_size", 1: "encoder_sequence_length"}
 
         return common_inputs
+
+
+class EncoderDecoderOnnxConfig(DummyEncoderDecoderOnnxConfig):
+    NORMALIZED_CONFIG_CLASS = NormalizedEncoderDecoderConfig
