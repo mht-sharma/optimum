@@ -1462,6 +1462,45 @@ class TasksManager:
         return task
 
     @classmethod
+    def infer_library_from_config(
+        cls,
+        config_path: str,
+        library_name: str = None,
+    ):
+        """
+        Infers the library from the model repo.
+
+        Args:
+            model_name_or_path (`str`):
+                The model to infer the task from. This can either be the name of a repo on the HuggingFace Hub, an
+                instance of a model, or a model class.
+            subfolder (`str`, defaults to `""`):
+                In case the model files are located inside a subfolder of the model directory / repo on the Hugging
+                Face Hub, you can specify the subfolder name here.
+            revision (`Optional[str]`, *optional*, defaults to `None`):
+                Revision is the specific model version to use. It can be a branch name, a tag name, or a commit id.
+            cache_dir (`Optional[str]`, *optional*):
+                Path to a directory in which a downloaded pretrained model weights have been cached if the standard cache should not be used.
+            library_name (`Optional[str]`, *optional*):
+                 The library name of the model.
+        Returns:
+            `str`: The library name automatically detected from the model repo.
+        """
+        if library_name is not None:
+            return library_name
+        
+        model_config = PretrainedConfig.from_json_file(config_path)
+
+        if hasattr(model_config, "pretrained_cfg"):
+            library_name = "timm"
+        elif hasattr(model_config, "_diffusers_version"):
+            library_name = "diffusers"
+        else:
+            library_name = "transformers"
+            
+        return library_name
+
+    @classmethod
     def infer_library_from_model(
         cls,
         model_name_or_path: str,
@@ -1502,10 +1541,15 @@ class TasksManager:
             all_files, _ = TasksManager.get_model_files(model_name_or_path, subfolder, cache_dir)
 
             if "model_index.json" in all_files:
-                library_name = "diffusers"
-            elif "config.json" in all_files:
-                config_path = full_model_path / "config.json"
-
+                return "diffusers"
+            
+            config_path = full_model_path / "config.json"
+            if "config.json" not in all_files and subfolder != "":
+                all_files, _ = TasksManager.get_model_files(model_name_or_path, subfolder, cache_dir)
+                config_path = Path(model_name_or_path) / "config.json"
+                subfolder = ""
+                
+            if "config.json" in all_files:
                 if not full_model_path.is_dir():
                     config_path = huggingface_hub.hf_hub_download(
                         model_name_or_path, "config.json", subfolder=subfolder, revision=revision

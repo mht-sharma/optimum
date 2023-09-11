@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Optional, Union
 from huggingface_hub import HfApi, HfFolder
 from transformers import AutoConfig, add_start_docstrings
 
+from .exporters import TasksManager
 from .utils import CONFIG_NAME
 
 
@@ -289,6 +290,23 @@ class OptimizedModel(PreTrainedModel):
         )
 
     @classmethod
+    def _from_timm(
+        cls,
+        model_id: Union[str, Path],
+        config: "PretrainedConfig",
+        use_auth_token: Optional[Union[bool, str]] = None,
+        revision: Optional[str] = None,
+        force_download: bool = False,
+        cache_dir: Optional[str] = None,
+        subfolder: str = "",
+        local_files_only: bool = False,
+        trust_remote_code: bool = False,
+        **kwargs,
+    ) -> "OptimizedModel":
+        """Overwrite this method in subclass to define how to load your model from timm model"""
+        raise NotImplementedError("Overwrite this method in subclass to define how to load your model from timm model")
+
+    @classmethod
     @add_start_docstrings(FROM_PRETRAINED_START_DOCSTRING)
     def from_pretrained(
         cls,
@@ -324,25 +342,61 @@ class OptimizedModel(PreTrainedModel):
                     f"The argument `revision` was set to {revision} but will be ignored for {model_id.split('@')[1]}"
                 )
             model_id, revision = model_id.split("@")
-
-        if config is None:
-            if os.path.isdir(os.path.join(model_id, subfolder)) and cls.config_name == CONFIG_NAME:
-                if CONFIG_NAME in os.listdir(os.path.join(model_id, subfolder)):
-                    config = AutoConfig.from_pretrained(
-                        os.path.join(model_id, subfolder, CONFIG_NAME), trust_remote_code=trust_remote_code
-                    )
-                elif CONFIG_NAME in os.listdir(model_id):
-                    config = AutoConfig.from_pretrained(
-                        os.path.join(model_id, CONFIG_NAME), trust_remote_code=trust_remote_code
-                    )
-                    logger.info(
-                        f"config.json not found in the specified subfolder {subfolder}. Using the top level config.json."
-                    )
+            
+        if export:
+            library_name = TasksManager.infer_library_from_model()
+        else:
+            library_name = TasksManager.infer_library_from_config()
+            
+        if library_name is "timm":
+            if config is None:
+                if os.path.isdir(os.path.join(model_id, subfolder)) and cls.config_name == CONFIG_NAME:
+                    if CONFIG_NAME in os.listdir(os.path.join(model_id, subfolder)):
+                        config_path = os.path.join(model_id, subfolder, CONFIG_NAME)
+                    elif CONFIG_NAME in os.listdir(model_id):
+                        config_path = os.path.join(model_id, CONFIG_NAME)
+                        logger.info(
+                            f"config.json not found in the specified subfolder {subfolder}. Using the top level config.json."
+                        )
+                    else:
+                        raise OSError(f"config.json not found in {model_id} local folder")
+                    
+                    config = cls._load_timm_config()
                 else:
-                    raise OSError(f"config.json not found in {model_id} local folder")
+                    config_path = huggingface_hub.hf_hub_download(
+                        model_id, "config.json", subfolder=subfolder, revision=revision
+                    )
+                    config = cls._load_timm_config()
             else:
+                config = cls._load_timm_config()
+                    
+        else:
+            if config is None:
+                if os.path.isdir(os.path.join(model_id, subfolder)) and cls.config_name == CONFIG_NAME:
+                    if CONFIG_NAME in os.listdir(os.path.join(model_id, subfolder)):
+                        config_path = os.path.join(model_id, subfolder, CONFIG_NAME)
+                    elif CONFIG_NAME in os.listdir(model_id):
+                        config_path = os.path.join(model_id, CONFIG_NAME)
+                        logger.info(
+                            f"config.json not found in the specified subfolder {subfolder}. Using the top level config.json."
+                        )
+                    else:
+                        raise OSError(f"config.json not found in {model_id} local folder")
+                    
+                    config = AutoConfig.from_pretrained(config_path, trust_remote_code=trust_remote_code)
+                else:
+                    config = cls._load_config(
+                        model_id,
+                        revision=revision,
+                        cache_dir=cache_dir,
+                        use_auth_token=use_auth_token,
+                        force_download=force_download,
+                        subfolder=subfolder,
+                        trust_remote_code=trust_remote_code,
+                    )
+            elif isinstance(config, (str, os.PathLike)):
                 config = cls._load_config(
-                    model_id,
+                    config,
                     revision=revision,
                     cache_dir=cache_dir,
                     use_auth_token=use_auth_token,
@@ -350,16 +404,6 @@ class OptimizedModel(PreTrainedModel):
                     subfolder=subfolder,
                     trust_remote_code=trust_remote_code,
                 )
-        elif isinstance(config, (str, os.PathLike)):
-            config = cls._load_config(
-                config,
-                revision=revision,
-                cache_dir=cache_dir,
-                use_auth_token=use_auth_token,
-                force_download=force_download,
-                subfolder=subfolder,
-                trust_remote_code=trust_remote_code,
-            )
 
         if not export and trust_remote_code:
             logger.warning(
@@ -368,7 +412,15 @@ class OptimizedModel(PreTrainedModel):
         elif export and trust_remote_code is None:
             trust_remote_code = False
 
-        from_pretrained_method = cls._from_transformers if export else cls._from_pretrained
+        if export:
+            library_name = TasksManager.infer_library_from_model(model_id, subfolder=subfolder, revision=revision)
+            if library_name == "timm":
+                from_pretrained_method = cls._from_timm
+            else:
+                from_pretrained_method = cls._from_transformers
+        else:
+            from_pretrained_method = cls._from_pretrained
+
         return from_pretrained_method(
             model_id=model_id,
             config=config,
