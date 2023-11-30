@@ -1113,3 +1113,72 @@ class DummyVisionEncoderDecoderPastKeyValuesGenerator(DummySeq2SeqPastKeyValuesG
                 )
                 for _ in range(self.num_layers)
             ]
+
+
+class DummySpeechEncoderDecoderPastKeyValuesGenerator(DummySeq2SeqPastKeyValuesGenerator):
+    def __init__(
+        self,
+        task: str,
+        normalized_config: NormalizedSeq2SeqConfig,
+        batch_size: int = DEFAULT_DUMMY_SHAPES["batch_size"],
+        sequence_length: int = DEFAULT_DUMMY_SHAPES["sequence_length"],
+        encoder_sequence_length: Optional[int] = None,
+        random_batch_size_range: Optional[Tuple[int, int]] = None,
+        random_sequence_length_range: Optional[Tuple[int, int]] = None,
+        **kwargs,
+    ):
+        super().__init__(
+            task=task,
+            normalized_config=normalized_config,
+            batch_size=batch_size,
+            sequence_length=sequence_length,
+            encoder_sequence_length=encoder_sequence_length,
+            random_batch_size_range=random_batch_size_range,
+            random_sequence_length_range=random_sequence_length_range,
+            **kwargs,
+        )
+        if isinstance(normalized_config.DECODER_NORMALIZED_CONFIG_CLASS, NormalizedSeq2SeqConfig):
+            # Here, the decoder used in the vision-encoder-decoder comes from a seq2seq model.
+            self.num_layers = self.normalized_config.DECODER_NORMALIZED_CONFIG_CLASS.decoder_num_layers
+            self.use_cross_attention = True
+        else:
+            self.num_layers = self.normalized_config.DECODER_NORMALIZED_CONFIG_CLASS.num_layers
+            self.use_cross_attention = False
+
+    def generate(self, input_name: str, framework: str = "pt", int_dtype: str = "int64", float_dtype: str = "fp32"):
+        decoder_hidden_size = self.normalized_config.DECODER_NORMALIZED_CONFIG_CLASS.hidden_size
+        decoder_num_attention_heads = self.normalized_config.DECODER_NORMALIZED_CONFIG_CLASS.num_attention_heads
+        decoder_shape = (
+            self.batch_size,
+            decoder_num_attention_heads,
+            self.sequence_length,
+            decoder_hidden_size // decoder_num_attention_heads,
+        )
+
+        if not self.use_cross_attention:
+            return [
+                (
+                    self.random_float_tensor(decoder_shape, framework=framework, dtype=float_dtype),
+                    self.random_float_tensor(decoder_shape, framework=framework, dtype=float_dtype),
+                )
+                for _ in range(self.num_layers)
+            ]
+        else:
+            encoder_hidden_size = decoder_hidden_size
+            encoder_num_attention_heads = decoder_num_attention_heads
+
+            encoder_shape = (
+                self.batch_size,
+                encoder_num_attention_heads,
+                self.encoder_sequence_length,
+                encoder_hidden_size // encoder_num_attention_heads,
+            )
+            return [
+                (
+                    self.random_float_tensor(decoder_shape, framework=framework, dtype=float_dtype),
+                    self.random_float_tensor(decoder_shape, framework=framework, dtype=float_dtype),
+                    self.random_float_tensor(encoder_shape, framework=framework, dtype=float_dtype),
+                    self.random_float_tensor(encoder_shape, framework=framework, dtype=float_dtype),
+                )
+                for _ in range(self.num_layers)
+            ]
